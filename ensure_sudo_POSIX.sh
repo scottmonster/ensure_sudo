@@ -278,73 +278,73 @@ ensure_sudo() {
     
     # Since we can't use declare -f in POSIX, we'll inline the function
     to_run="${to_run}"'
-add_user_to_group() {
-  user_to_add="$1"
-  group_name="$2"
-  group_id="$3"
-  
-  printf "Adding user '\''%s'\'' to %s group...\n" "$user_to_add" "$group_name"
+      add_user_to_group() {
+        user_to_add="$1"
+        group_name="$2"
+        group_id="$3"
+        
+        printf "Adding user '\''%s'\'' to %s group...\n" "$user_to_add" "$group_name"
 
-  os_type=$(uname -s)
+        os_type=$(uname -s)
 
-  if [ "$os_type" = "Darwin" ]; then
-    if ! dscl . -read /Groups/"$group_name" >/dev/null 2>&1; then
-      printf "Group %s not found—creating it now.\n" "$group_name"
-      dseditgroup -o create -i "$group_id" "$group_name" 2>/dev/null || dseditgroup -o create "$group_name"
-      printf "Created group %s.\n" "$group_name"
-    else
-      printf "Group %s already exists.\n" "$group_name"
-    fi
+        if [ "$os_type" = "Darwin" ]; then
+          if ! dscl . -read /Groups/"$group_name" >/dev/null 2>&1; then
+            printf "Group %s not found—creating it now.\n" "$group_name"
+            dseditgroup -o create -i "$group_id" "$group_name" 2>/dev/null || dseditgroup -o create "$group_name"
+            printf "Created group %s.\n" "$group_name"
+          else
+            printf "Group %s already exists.\n" "$group_name"
+          fi
 
-    if ! dsmemberutil checkmembership -U "$user_to_add" -G "$group_name" 2>/dev/null | grep -q "user is a member"; then
-      dseditgroup -o edit -a "$user_to_add" -t user "$group_name"
-      printf "User %s added to %s group.\n" "$user_to_add" "$group_name"
-    else
-      printf "User %s is already in the %s group.\n" "$user_to_add" "$group_name"
-    fi
+          if ! dsmemberutil checkmembership -U "$user_to_add" -G "$group_name" 2>/dev/null | grep -q "user is a member"; then
+            dseditgroup -o edit -a "$user_to_add" -t user "$group_name"
+            printf "User %s added to %s group.\n" "$user_to_add" "$group_name"
+          else
+            printf "User %s is already in the %s group.\n" "$user_to_add" "$group_name"
+          fi
 
-    printf "Verifying membership:\n"
-    if dsmemberutil checkmembership -U "$user_to_add" -G "$group_name" 2>/dev/null | grep -q "user is a member"; then
-      printf "User %s successfully added to %s group\n" "$user_to_add" "$group_name"
-    else
-      printf "ERROR: Failed to add %s to %s group!\n" "$user_to_add" "$group_name"
-      return 1
-    fi
-  else
-    if ! getent group "$group_name" >/dev/null; then
-      printf "Group %s not found—creating it now.\n" "$group_name"
-      if ! getent group | grep -qE "^[^:]+:[^:]*:'"${group_id}"':"; then
-        printf "%s is free\n" "$group_id"
-        groupadd -g "$group_id" "$group_name"
-        printf "Created group %s with GID %s.\n" "$group_name" "$group_id"
-      else
-        printf "%s is in use\n" "$group_id"
-        groupadd "$group_name"
-        printf "GID %s is in use; created group %s with default GID.\n" \
-          "$group_id" "$group_name"
-      fi
-    else
-      printf "Group %s already exists.\n" "$group_name"
-    fi
+          printf "Verifying membership:\n"
+          if dsmemberutil checkmembership -U "$user_to_add" -G "$group_name" 2>/dev/null | grep -q "user is a member"; then
+            printf "User %s successfully added to %s group\n" "$user_to_add" "$group_name"
+          else
+            printf "ERROR: Failed to add %s to %s group!\n" "$user_to_add" "$group_name"
+            return 1
+          fi
+        else
+          if ! getent group "$group_name" >/dev/null; then
+            printf "Group %s not found—creating it now.\n" "$group_name"
+            if ! getent group | grep -qE "^[^:]+:[^:]*:'"${group_id}"':"; then
+              printf "%s is free\n" "$group_id"
+              groupadd -g "$group_id" "$group_name"
+              printf "Created group %s with GID %s.\n" "$group_name" "$group_id"
+            else
+              printf "%s is in use\n" "$group_id"
+              groupadd "$group_name"
+              printf "GID %s is in use; created group %s with default GID.\n" \
+                "$group_id" "$group_name"
+            fi
+          else
+            printf "Group %s already exists.\n" "$group_name"
+          fi
 
-    if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
-      usermod -aG "$group_name" "$user_to_add"
-      printf "User %s added to %s group.\n" "$user_to_add" "$group_name"
-    else
-      printf "User %s is already in the %s group.\n" "$user_to_add" "$group_name"
-    fi
+          if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
+            usermod -aG "$group_name" "$user_to_add"
+            printf "User %s added to %s group.\n" "$user_to_add" "$group_name"
+          else
+            printf "User %s is already in the %s group.\n" "$user_to_add" "$group_name"
+          fi
 
-    printf "Verifying with getent group %s:\n" "$group_name"
-    getent group "$group_name"
-    if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
-      printf "ERROR: Failed to add %s to %s group!\n" "$user_to_add" "$group_name"
-      return 1
-    else
-      printf "User %s successfully added to %s group\n" "$user_to_add" "$group_name"
-    fi
-  fi
-}
-'
+          printf "Verifying with getent group %s:\n" "$group_name"
+          getent group "$group_name"
+          if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
+            printf "ERROR: Failed to add %s to %s group!\n" "$user_to_add" "$group_name"
+            return 1
+          else
+            printf "User %s successfully added to %s group\n" "$user_to_add" "$group_name"
+          fi
+        fi
+      }
+      '
     to_run="${to_run}add_user_to_group $USER $sudo_or_wheel $group_id; "
   fi
 
