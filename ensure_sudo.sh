@@ -136,6 +136,9 @@ function get_sudo_or_wheel(){
     fedora|redhat|centos|rocky|almalinux|redhat-like|suse|suse-like|arch|manjaro|endeavouros|garuda|arch-like|alpine)
       echo "wheel"
       ;;
+    macos)
+      echo "admin"
+      ;;
     *)
       # Default to sudo if unknown
       echo "sudo"
@@ -158,6 +161,9 @@ function get_group_id(){
       ;;
     alpine)
       echo "10"
+      ;;
+    macos)
+      echo "80"
       ;;
     *)
       echo "27"
@@ -197,51 +203,83 @@ function ensure_sudo(){
     local group_id="$3"
     echo "Adding user '$user_to_add' to ${group_name} group..."
 
+    # Detect OS for platform-specific commands
+    local os_type=$(get_os)
 
-    # make sure the group exists
-    if ! getent group "$group_name" >/dev/null; then
-      echo "Group ${group_name} not found—creating it now."
-      if ! getent group | grep -qE '^[^:]+:[^:]*:'"${group_id}"':'; then
-        echo "$group_id is free"
-        groupadd -g $group_id "$group_name"
-        echo "Created group ${group_name} with GID ${group_id}."
+    if [ "$os_type" = "macos" ]; then
+      # macOS-specific group management
+      # Check if group exists
+      if ! dscl . -read /Groups/"$group_name" >/dev/null 2>&1; then
+        echo "Group ${group_name} not found—creating it now."
+        dseditgroup -o create -i "$group_id" "$group_name" 2>/dev/null || dseditgroup -o create "$group_name"
+        echo "Created group ${group_name}."
       else
-        echo "$group_id is in use"
-        groupadd "$group_name"
-        echo "GID ${group_id} is in use; created group ${group_name} with default GID."
+        echo "Group ${group_name} already exists."
+      fi
+
+      # Check if user is already in the group
+      if ! dsmemberutil checkmembership -U "$user_to_add" -G "$group_name" 2>/dev/null | grep -q "user is a member"; then
+        dseditgroup -o edit -a "$user_to_add" -t user "$group_name"
+        echo "User $user_to_add added to ${group_name} group."
+      else
+        echo "User $user_to_add is already in the ${group_name} group."
+      fi
+
+      # Verify the user was added
+      echo "Verifying membership:"
+      if dsmemberutil checkmembership -U "$user_to_add" -G "$group_name" 2>/dev/null | grep -q "user is a member"; then
+        echo "User ${user_to_add} successfully added to ${group_name} group"
+      else
+        echo "ERROR: Failed to add ${user_to_add} to ${group_name} group!"
+        return 1
       fi
     else
-      echo "Group ${group_name} already exists."
+      # Linux-specific group management
+      # make sure the group exists
+      if ! getent group "$group_name" >/dev/null; then
+        echo "Group ${group_name} not found—creating it now."
+        if ! getent group | grep -qE '^[^:]+:[^:]*:'"${group_id}"':'; then
+          echo "$group_id is free"
+          groupadd -g $group_id "$group_name"
+          echo "Created group ${group_name} with GID ${group_id}."
+        else
+          echo "$group_id is in use"
+          groupadd "$group_name"
+          echo "GID ${group_id} is in use; created group ${group_name} with default GID."
+        fi
+      else
+        echo "Group ${group_name} already exists."
+      fi
+
+      # add user to the group
+      if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
+        usermod -aG "$group_name" "$user_to_add"
+        echo "User $user_to_add added to ${group_name} group."
+      else
+        echo "User $user_to_add is already in the ${group_name} group."
+      fi
+
+      # verify the user was added
+      echo "Verifying with getent group ${group_name}:"
+      getent group "$group_name"
+      if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
+        echo "ERROR: Failed to add ${user_to_add} to ${group_name} group!"
+        return 1
+      else
+        echo "User ${user_to_add} successfully added to ${group_name} group"
+      fi
     fi
 
-    
-    # add user to the group
-    if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
-      usermod -aG "$group_name" "$user_to_add"
-      echo "User $user_to_add added to ${group_name} group."
-    else
-      echo "User $user_to_add is already in the ${group_name} group."
-    fi
-
-    # verify the user was added
-    echo "Verifying with getent group ${group_name}:"
-    getent group "$group_name"
-    if ! getent group "$group_name" | grep -q "\b${user_to_add}\b"; then
-      echo "ERROR: Failed to add ${user_to_add} to ${group_name} group!"
-      return 1
-    else
-      echo "User ${user_to_add} successfully added to ${group_name} group"
-    fi
-
-    echo "add_user_to_sudo finished for $user_to_add"
+    echo "add_user_to_group finished for $user_to_add"
   }
 
   
   # if user is not in the sudo or wheel group add add_user_to_group to_run as root
   local sudo_or_wheel=$(get_sudo_or_wheel)
   local group_id=$(get_group_id)
-  if ! id -nG "$USER" | tr ' ' '\n' | grep -Eqx 'sudo|wheel'; then
-    echo "User $USER is not in the sudo group, adding now..."
+  if ! id -nG "$USER" | tr ' ' '\n' | grep -Eqx 'sudo|wheel|admin'; then
+    echo "User $USER is not in the sudo/wheel/admin group, adding now..."
+    to_run+="$(declare -f get_os); "
     to_run+="$(declare -f add_user_to_group); "
     to_run+="add_user_to_group $USER $sudo_or_wheel $group_id; "
   fi
