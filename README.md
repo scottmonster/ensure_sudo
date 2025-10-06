@@ -21,6 +21,8 @@ As is. Run at your own risk. I'm not accountable for your poor judgment. You've 
 
 A demonstration script for automatically setting up sudo access without manual script restarts.
 
+#### Important: This has only been tested on debian systems
+
 ## Problem
 
 I've repeatedly encountered situations where I need to ensure sudo is available and usable in automated scripts, but the user either:

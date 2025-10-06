@@ -16,6 +16,11 @@ get_os() {
       linuxmint) printf "linuxmint"; return 0 ;;
       elementary) printf "elementary"; return 0 ;;
       raspbian)  printf "raspbian"; return 0 ;;
+      mx)        printf "mx"; return 0 ;;
+      kali)      printf "kali"; return 0 ;;
+      parrot)    printf "parrot"; return 0 ;;
+      dietpi)    printf "dietpi"; return 0 ;;
+      zorin)     printf "zorin"; return 0 ;;
       fedora)    printf "fedora"; return 0 ;;
       rhel)      printf "redhat"; return 0 ;;
       centos)    printf "centos"; return 0 ;;
@@ -23,8 +28,11 @@ get_os() {
       almalinux) printf "almalinux"; return 0 ;;
       arch)      printf "arch"; return 0 ;;
       manjaro)   printf "manjaro"; return 0 ;;
+      endeavouros) printf "endeavouros"; return 0 ;;
+      garuda)    printf "garuda"; return 0 ;;
       opensuse*|sles)
                  printf "suse"; return 0 ;;
+      alpine)    printf "alpine"; return 0 ;;
     esac
 
     # Fall back to ID_LIKE if ID wasn't matched
@@ -72,6 +80,8 @@ get_os() {
         printf "arch"
       elif command -v zypper >/dev/null 2>&1; then
         printf "suse"
+      elif command -v apk >/dev/null 2>&1; then
+        printf "alpine"
       else
         printf "linux"
       fi
@@ -85,7 +95,7 @@ get_os() {
 get_install_cmd() {
   os=$(get_os)
   case "$os" in
-    ubuntu|debian|pop_os|linuxmint|elementary|raspbian|ubuntu-like|debian-like)
+    ubuntu|debian|pop_os|linuxmint|elementary|raspbian|mx|kali|parrot|dietpi|zorin|ubuntu-like|debian-like)
       printf "apt-get install -y"
       ;;
     fedora)
@@ -101,8 +111,11 @@ get_install_cmd() {
     suse|suse-like)
       printf "zypper install -y"
       ;;
-    arch|manjaro|arch-like)
+    arch|manjaro|endeavouros|garuda|arch-like)
       printf "pacman -S --noconfirm"
+      ;;
+    alpine)
+      printf "apk add"
       ;;
     macos)
       printf "brew install"
@@ -120,10 +133,10 @@ get_install_cmd() {
 get_sudo_or_wheel() {
   os=$(get_os)
   case "$os" in
-    ubuntu|debian|pop_os|linuxmint|elementary|raspbian|ubuntu-like|debian-like)
+    ubuntu|debian|pop_os|linuxmint|elementary|raspbian|mx|kali|parrot|dietpi|zorin|ubuntu-like|debian-like)
       printf "sudo"
       ;;
-    fedora|redhat|centos|rocky|almalinux|redhat-like|suse|suse-like|arch|manjaro|arch-like)
+    fedora|redhat|centos|rocky|almalinux|redhat-like|suse|suse-like|arch|manjaro|endeavouros|garuda|arch-like|alpine)
       printf "wheel"
       ;;
     *)
@@ -136,13 +149,16 @@ get_sudo_or_wheel() {
 get_group_id() {
   os=$(get_os)
   case "$os" in
-    ubuntu|debian|pop_os|linuxmint|elementary|raspbian|ubuntu-like|debian-like)
+    ubuntu|debian|pop_os|linuxmint|elementary|raspbian|mx|kali|parrot|dietpi|zorin|ubuntu-like|debian-like)
       printf "27"
       ;;
-    arch|manjaro|arch-like)
+    arch|manjaro|endeavouros|garuda|arch-like)
       printf "998"
       ;;
     fedora|redhat|centos|rocky|almalinux|redhat-like|suse|suse-like)
+      printf "10"
+      ;;
+    alpine)
       printf "10"
       ;;
     *)
